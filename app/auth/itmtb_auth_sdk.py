@@ -6,7 +6,7 @@ Central Auth client for all Python microservices.
 Responsibilities:
 - Get + cache service token (Auth MS).
 - Verify user JWT via Auth MS.
-- Verify service token via JWKS (local, fast).
+- Verify service token via Auth MS (for inbound middleware).
 - Provide helpers for cross-service calls with correct headers.
 """
 
@@ -16,6 +16,8 @@ from typing import Optional, Dict, Any
 
 import requests
 import jwt
+import json
+import time
 from jwt import PyJWKClient, InvalidTokenError
 
 
@@ -96,7 +98,7 @@ class AuthClient:
     ):
         """
         auth_base_url: e.g. http://localhost:6501/auth
-        service_id: e.g. svc_file
+        service_id: e.g. svc_ums
         service_secret: secret configured in service_accounts table
         session: optional requests.Session for connection reuse / mocking
         """
@@ -146,13 +148,10 @@ class AuthClient:
 
         Returns identity JSON on success:
         {
-          "user": {
-            "u_id": "...",
-            "auth_user_id": "...",
-            "email": "...",
-            "tenant_id": ...,
-            "is_active": true
-          }
+          "u_id": "...",
+          "email": "...",
+          "tenant_id": ...,
+          "status": "active"
         }
         """
         if not user_token:
@@ -289,7 +288,6 @@ class AuthClient:
         - X-User-Token: <end-user token> (optional)
         """
         svc_token = self.get_service_token()
-        # Do not print service token - contains sensitive information
         headers = {
             "X-Service-Token": svc_token,
         }
@@ -328,7 +326,6 @@ class AuthClient:
         # merge headers: caller-supplied + auth headers
         auth_headers = self.build_service_headers(user_token=user_token)
         final_headers = {**(headers or {}), **auth_headers}
-        # Do not print final_headers - contains sensitive token information
 
         try:
             resp = self.session.request(method, url, headers=final_headers, timeout=timeout, **kwargs)
@@ -348,4 +345,3 @@ class AuthClient:
                 raise ServiceCallError(f"Error calling service '{service_name}' at {url} after refresh: {e}")
 
         return resp
-

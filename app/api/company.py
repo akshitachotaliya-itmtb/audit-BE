@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.deps import get_current_user
+from fastapi import Request
+from app.deps import extract_user_identity
 from app.schemas.db import (
     CompanyIndustrySizeMaster,
     CompanyManufacturingList,
@@ -29,7 +30,9 @@ from app.schemas.company import (
     TaxRegistrationReplaceRequest,
 )
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+# Router-level auth is handled by AuthMiddleware in main.py
+# All requests must have valid Authorization: Bearer <token> or X-Service-Token
+router = APIRouter()
 
 
 def _safe_int(value: object, default: int = 1) -> int:
@@ -41,14 +44,23 @@ def _safe_int(value: object, default: int = 1) -> int:
 
 @router.get("/company-search", response_model=list[CompanySearchResult])
 def search_company_master(
+    request: Request,
     q: str | None = Query(default=None, description="Search by company name"),
     db: Session = Depends(get_db),
 ):
+    # Extract user identity (reusable helper)
+    _, tenant_id = extract_user_identity(request)
     query = (
         db.query(CompanyMaster, RegulatoryMaster, CompanyIndustrySizeMaster)
         .outerjoin(RegulatoryMaster, RegulatoryMaster.company_id == CompanyMaster.company_id)
         .outerjoin(CompanyIndustrySizeMaster, CompanyIndustrySizeMaster.company_id == CompanyMaster.company_id)
     )
+    
+    # Optional: Filter by tenant_id if available (for multi-tenant isolation)
+    # Uncomment if your CompanyMaster has tenant_id column
+    # if tenant_id:
+    #     query = query.filter(CompanyMaster.tenant_id == tenant_id)
+    
     if q:
         like = f"%{q}%"
         query = query.filter(or_(CompanyMaster.legal_name.ilike(like), CompanyMaster.display_name.ilike(like)))
@@ -72,8 +84,20 @@ def search_company_master(
 
 
 @router.get("/company-master", response_model=CompanyDetail)
-def get_company_master_detail(company_id: str = Query(...), db: Session = Depends(get_db)):
-    company = db.query(CompanyMaster).filter(CompanyMaster.company_id == company_id).first()
+def get_company_master_detail(
+    request: Request,
+    company_id: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    # Extract user identity (reusable helper)
+    _, tenant_id = extract_user_identity(request)
+    query = db.query(CompanyMaster).filter(CompanyMaster.company_id == company_id)
+    
+    # Optional: Add tenant filtering if needed
+    # if tenant_id:
+    #     query = query.filter(CompanyMaster.tenant_id == tenant_id)
+    
+    company = query.first()
     if not company:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
     return CompanyDetail(
@@ -93,9 +117,19 @@ def get_company_master_detail(company_id: str = Query(...), db: Session = Depend
 @router.post("/company-create")
 def create_company_master(
     payload: CompanyCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
 ):
+    # Extract user identity (reusable helper)
+    actor_user_id, tenant_id = extract_user_identity(request)
+    
+    if not actor_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User authentication required",
+        )
+    
+    created_by = actor_user_id
     if payload.cin:
         duplicate = (
             db.query(CompanyMaster.company_id)
@@ -110,7 +144,7 @@ def create_company_master(
                 detail="Company with same legal name and CIN already exists",
             )
 
-    created_by = current_user.get("user_id", "demo-user")
+    created_by = str(actor_user_id)
     company = CompanyMaster(
         legal_name=payload.legal_name,
         display_name=payload.display_name,
@@ -129,7 +163,13 @@ def create_company_master(
 
 
 @router.post("/regulatory-upsert")
-def upsert_regulatory_master(payload: RegulatoryUpsertRequest, db: Session = Depends(get_db)):
+def upsert_regulatory_master(
+    payload: RegulatoryUpsertRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # Extract user identity (reusable helper)
+    actor_user_id, _ = extract_user_identity(request)
     company = db.query(CompanyMaster).filter(CompanyMaster.company_id == payload.company_id).first()
     if not company:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
@@ -173,7 +213,13 @@ def upsert_regulatory_master(payload: RegulatoryUpsertRequest, db: Session = Dep
 
 
 @router.post("/industry-size-upsert")
-def upsert_industry_size_profile(payload: IndustrySizeUpsertRequest, db: Session = Depends(get_db)):
+def upsert_industry_size_profile(
+    payload: IndustrySizeUpsertRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # Extract user identity (reusable helper)
+    actor_user_id, _ = extract_user_identity(request)
     record = (
         db.query(CompanyIndustrySizeMaster)
         .filter(CompanyIndustrySizeMaster.company_id == payload.company_id)
@@ -208,7 +254,13 @@ def upsert_industry_size_profile(payload: IndustrySizeUpsertRequest, db: Session
 
 
 @router.post("/tax-registration-replace")
-def replace_tax_registrations_for_company(payload: TaxRegistrationReplaceRequest, db: Session = Depends(get_db)):
+def replace_tax_registrations_for_company(
+    payload: TaxRegistrationReplaceRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # Extract user identity (reusable helper)
+    actor_user_id, _ = extract_user_identity(request)
     db.query(CompanyTaxRegistration).filter(CompanyTaxRegistration.company_id == payload.company_id).delete()
     for item in payload.items:
         db.add(
@@ -224,7 +276,13 @@ def replace_tax_registrations_for_company(payload: TaxRegistrationReplaceRequest
 
 
 @router.post("/manufacturing-replace")
-def replace_manufacturing_for_company(payload: ManufacturingReplaceRequest, db: Session = Depends(get_db)):
+def replace_manufacturing_for_company(
+    payload: ManufacturingReplaceRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # Extract user identity (reusable helper)
+    actor_user_id, _ = extract_user_identity(request)
     db.query(CompanyManufacturingList).filter(CompanyManufacturingList.company_id == payload.company_id).delete()
     for item in payload.items:
         db.add(
@@ -241,7 +299,13 @@ def replace_manufacturing_for_company(payload: ManufacturingReplaceRequest, db: 
 
 
 @router.post("/engagement-create")
-def create_engagement(payload: EngagementCreateRequest, db: Session = Depends(get_db)):
+def create_engagement(
+    payload: EngagementCreateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # Extract user identity (reusable helper)
+    actor_user_id, tenant_id = extract_user_identity(request)
     engagement = Engagement(
         company_id=payload.company_id,
         engagement_name=payload.engagement_name,
@@ -257,7 +321,13 @@ def create_engagement(payload: EngagementCreateRequest, db: Session = Depends(ge
 
 
 @router.post("/engagement-context")
-def create_engagement_context(payload: EngagementContextCreateRequest, db: Session = Depends(get_db)):
+def create_engagement_context(
+    payload: EngagementContextCreateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # Extract user identity (reusable helper)
+    actor_user_id, _ = extract_user_identity(request)
     engagement = db.query(Engagement).filter(Engagement.engagement_id == payload.engagement_id).first()
     if not engagement:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found")

@@ -6,7 +6,7 @@ from starlette.responses import Response
 from dotenv import load_dotenv
 load_dotenv()
 
-from itmtb_auth_sdk import (
+from app.auth.itmtb_auth_sdk import (
     AuthClient,
     AuthUnauthorizedError,
     AuthServiceError,
@@ -66,12 +66,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             try:
                 user_identity = self.auth_client.verify_user_token(user_token)
                 request.state.user_identity = user_identity
-            except AuthUnauthorizedError as e:
-                print(f"❌ [AUTH_MIDDLEWARE] User token verification failed: {str(e)}")
-                raise HTTPException(status_code=401, detail=f"Invalid user token: {str(e)}")
-            except AuthServiceError as e:
-                print(f"❌ [AUTH_MIDDLEWARE] Auth service error: {str(e)}")
-                raise HTTPException(status_code=503, detail=f"Auth system error: {str(e)}")
+            except AuthUnauthorizedError:
+                raise HTTPException(status_code=401, detail="Invalid user token")
+            except AuthServiceError:
+                raise HTTPException(status_code=503, detail="Auth system error")
 
         # -------------------------------
         # 3. Enforce at least one identity
@@ -80,4 +78,3 @@ class AuthMiddleware(BaseHTTPMiddleware):
             raise HTTPException(status_code=401, detail="Missing authentication")
 
         return await call_next(request)
-
