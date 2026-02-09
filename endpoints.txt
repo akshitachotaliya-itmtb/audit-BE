@@ -1,0 +1,357 @@
+Screen 1 Endpoints
+
+GET /company-search
+Searches Company Master by name/keyword and returns matching companies with key identifiers (e.g., name, country, CIN, sector).
+Use this to decide whether to use an existing company or create a new one.
+
+GET /company-master
+Fetches full Company Master detail for a selected company_id, including core identity fields.
+Use this to populate the Screen 1 form when an existing company is chosen.
+
+POST /company-create
+Creates a new Company Master record with legal identity and address information.
+Returns the created company_id for subsequent regulatory, industry, and engagement updates.
+
+POST /regulatory-upsert
+Creates or updates Regulatory/Registration data (CIN, PAN, LEI, listing status) for a company.
+Use this after Company Master creation or when updating statutory identifiers.
+
+POST /industry-size-upsert
+Creates or updates Industry and Size profile (sector, sub-sector, code, scale, indicators) for a company.
+Use this to capture industry classification and size signals required for BE/VA.
+
+POST /tax-registration-replace
+Replaces all tax registrations (GST/VAT list) for a company with the provided list.
+Use this when the user edits the repeater list on Screen 1.
+
+POST /manufacturing-replace
+Replaces the manufacturing/plant list for a company with the provided list of sites.
+Use this to keep plant locations in sync with the Screen 1 form.
+
+POST /engagement-create
+Creates an engagement for the company with audit type, FY, and reporting currency.
+This is the anchor record for running BE and VA analysis.
+
+Screen 1 Masters
+
+GET /entity-types
+Returns the list of legal entity types (Company, LLP, Partnership, etc.).
+Use this to populate the Entity Type dropdown.
+
+GET /groups
+Returns list of parent groups for group association.
+Use this to populate the Group/Parent search when 'Part of Group' is Yes.
+
+GET /industries
+Returns the industry sector list.
+Use this to populate the Industry Sector dropdown.
+
+GET /sub-industries
+Returns sub-industry list, typically filtered by sector.
+Use this to populate the dependent Sub-Sector dropdown.
+
+GET /industry-codes
+Returns industry codes (NIC/NAICS/custom) for lookup.
+Use this to populate the Industry Code selector.
+
+GET /nature-operations
+Returns the list of nature of operations (Manufacturing, Trading, Services, etc.).
+Use this to populate the multi-select for nature of operations.
+
+GET /business-models
+Returns business model options (B2B, B2C, B2G, Export-oriented).
+Use this to populate the business model multi-select.
+
+GET /annual-turnovers
+Returns turnover band options (e.g., <100 Cr, 100-500 Cr).
+Use this to populate the Annual Turnover Band dropdown.
+
+GET /employees
+Returns employee band options.
+Use this to populate the Employee Count Band dropdown.
+
+GET /transaction-indicators
+Returns transaction indicator options for Revenue and Spend.
+Use this to populate Revenue/Spend indicator dropdowns.
+
+
+Screen 2 Endpoints (Understand Business Environment)
+
+POST /analysis-run
+Triggers BE and VA jobs for an engagement.
+Use this on 'Confirm & Run Analysis.'
+
+GET /analysis-status
+Returns job status for BE/VA (Running/Completed/Partial/Failed).
+Use this to drive the Screen 2 state and progress indicators.
+
+GET /va-report-status
+Calls the external VA service to fetch report completion status.
+Use this to show whether VA report is completed or still processing.
+
+GET /be-insights
+Returns BE insights for an engagement, grouped by dimension.
+Use this to render the BE insight cards with drivers and confidence.
+
+GET /va-insights
+Returns VA insights for an engagement, grouped by metric group.
+Use this to render VA insight cards with evidence panel data.
+
+POST /be-insight-validate
+Creates or updates user validation for a BE insight (relevance, override, comments).
+Use this when the user marks BE insights as relevant/not relevant.
+
+POST /va-insight-validate
+Creates or updates user validation for a VA insight (relevance, override, comments).
+Use this when the user marks VA insights as relevant/not relevant.
+
+GET /risk-signals
+Returns consolidated risk signals after validations.
+Use this to populate the risk theme heatmap/table.
+
+POST /confirm-generate-problem-statements
+Locks Screen 2 validations and generates Screen 3 problem statements.
+Use this when 'Confirm & Generate Problem Statements' is clicked.
+
+
+Screen 3 Endpoints (Problem Statements)
+
+GET /problem-statements
+Returns system-generated problem statements with evidence links and metadata.
+Use this to render the Problem Statement list for review.
+
+POST /problem-statement-review
+Accepts/rejects a problem statement and captures override priority/comments.
+Use this to store user decisions before moving to Screen 4.
+
+POST /problem-statement-mapping
+Updates process mappings and impact classifications for a problem statement.
+Use this when users edit mapped processes or impact tags.
+
+POST /confirm-generate-universe
+Locks Screen 3 and generates the IA Risk Universe for Screen 4.
+Use this on 'Confirm & Generate IA Universe.'
+
+
+Screen 4 Endpoints (IA Risk Universe)
+
+GET /universe-processes
+Returns engagement-specific process universe with risk scores and recommendations.
+Use this to render the process-level list.
+
+GET /universe-subprocesses
+Returns sub-processes for a selected process with risk and recommendation.
+Use this to populate the center grid.
+
+POST /universe-process-decision
+Updates include/exclude decision and rationale for a process.
+Use this when users override system recommendations.
+
+POST /universe-subprocess-decision
+Updates include/exclude decision and rationale for a sub-process.
+Use this when users override system recommendations.
+
+POST /confirm-generate-audit-plan
+Locks Screen 4 and generates the initial audit plan for Screen 5.
+Use this on 'Confirm & Generate Audit Plan.'
+
+
+Screen 5 Endpoints (Audit Plan)
+
+GET /audit-plan
+Returns the audit plan grid data for the engagement.
+Use this to render audit areas, frequencies, timelines, and ownership.
+
+POST /audit-area-update
+Creates or updates an audit area with timing, frequency, scope, and ownership details.
+Use this when users adjust plan details for an audit area.
+
+POST /audit-plan-lock
+Locks the audit plan after validation and records timestamps.
+Use this to finalize and prevent further edits.
+
+GET /audit-plan-download
+Returns a downloadable export of the audit plan.
+Use this for 'Download Audit Plan.'
+
+
+VA Status Check from CRAB
+GET /va-report-status
+Calls the external VA service to fetch report completion status.
+Use this to show whether VA report is completed or still processing.
+
+Same endpoint will create in CRAB service where we fetch the result as per report id
+
+
+Users Endpoints
+
+POST /users
+Creates a new user account.
+Use this for initial user registration.
+
+GET /users
+Returns the current user's profile details.
+Requires authentication.
+
+POST /users/checkuser
+Validates whether a user exists or matches credentials/criteria.
+Should be protected (authenticated).
+
+PATCH /users/:id
+Updates a user's profile fields by ID.
+Requires authentication and proper authorization.
+
+PATCH /users/:id/picture
+Uploads or updates the user's profile picture.
+Requires authentication.
+
+PUT /users/:id/email
+Updates the user's email address.
+Requires authentication and may trigger re-verification.
+
+PUT /users/:id/phone
+Updates the user's phone number.
+Requires authentication.
+
+POST /users/login
+Authenticates a user and returns a session/token.
+Requires authentication as currently routed.
+
+POST /users/email-verification
+Sends an email verification message or verifies a token.
+Use this to validate user email ownership.
+
+GET /users/organization
+Returns the organisation details for the authenticated user.
+Requires authentication.
+
+GET /users/customers
+Returns customer details associated with the authenticated user/org.
+Requires authentication.
+
+POST /users/send-signup-verification
+Sends signup verification email.
+Use this during registration or resend flows.
+
+POST /users/send-reset-email
+Sends password reset email to the user.
+Use this for forgot-password flows.
+
+
+Payments Endpoints
+
+POST /initpay
+Initializes a payment intent/session for the authenticated user.
+Use this to start a credit purchase flow.
+
+POST /buycredit
+Creates a credit purchase request and links it to a payment intent.
+Use this when the user confirms a credit package.
+
+POST /success
+Verifies a successful payment callback and finalizes the credit purchase.
+Use this to mark payment as completed and grant credits.
+
+POST /pendingpay
+Verifies a pending payment callback and updates transaction status.
+Use this to handle delayed payment confirmations.
+
+GET /transactions
+Returns the authenticated user's payment transactions.
+Use this to show payment history.
+
+
+Cart Endpoints
+
+POST /carts
+Adds an item to the authenticated user's cart.
+Use this to create or update cart contents.
+Request Example:
+```json
+{"productId":"CRD-100","quantity":2}
+```
+Response Example:
+```json
+{"cartId":"cart_123","items":[{"itemId":"item_1","productId":"CRD-100","quantity":2,"unitPrice":1000}],"total":2000,"currency":"INR"}
+```
+
+GET /carts
+Returns the current user's cart with items and totals.
+Use this to render the cart page.
+Response Example:
+```json
+{"cartId":"cart_123","items":[{"itemId":"item_1","productId":"CRD-100","quantity":2,"unitPrice":1000}],"total":2000,"currency":"INR"}
+```
+
+GET /carts/:id
+Returns a specific cart by ID (admin/support use).
+Use this for troubleshooting or admin views.
+Response Example:
+```json
+{"cartId":"cart_123","userId":"usr_789","items":[{"itemId":"item_1","productId":"CRD-100","quantity":2,"unitPrice":1000}],"total":2000,"currency":"INR"}
+```
+
+PATCH /carts/:id
+Updates cart item quantities or details.
+Use this to modify items without recreating the cart.
+Request Example:
+```json
+{"items":[{"itemId":"item_1","quantity":3}]}
+```
+Response Example:
+```json
+{"cartId":"cart_123","items":[{"itemId":"item_1","productId":"CRD-100","quantity":3,"unitPrice":1000}],"total":3000,"currency":"INR"}
+```
+
+DELETE /carts/:id
+Removes a cart or clears all items.
+Use this to empty a cart or delete it entirely.
+Response Example:
+```json
+{"success":true,"cartId":"cart_123"}
+```
+
+POST /carts/checkout
+Validates the cart and initiates checkout flow.
+Use this before creating a payment intent.
+Request Example:
+```json
+{"cartId":"cart_123","paymentMethod":"UPI","currency":"INR"}
+```
+Response Example:
+```json
+{"checkoutId":"chk_456","cartId":"cart_123","amount":3000,"currency":"INR","status":"pending"}
+```
+
+Adds an item to the authenticated user's cart.
+Use this to create or update cart contents.
+
+GET /carts
+Returns the current user's cart with items and totals.
+Use this to render the cart page.
+
+GET /carts/:id
+Returns a specific cart by ID (admin/support use).
+Use this for troubleshooting or admin views.
+
+PATCH /carts/:id
+Updates cart item quantities or details.
+Use this to modify items without recreating the cart.
+
+DELETE /carts/:id
+Removes a cart or clears all items.
+Use this to empty a cart or delete it entirely.
+
+POST /carts/checkout
+Validates the cart and initiates checkout flow.
+Use this before creating a payment intent.
+
+Adds an item to the authenticated user's cart.
+Use this to create or update cart contents.
+
+
+Invoice Endpoints
+
+GET /invoice/download
+Downloads the invoice for a completed transaction.
+Use this to provide the user with a receipt/invoice PDF.
